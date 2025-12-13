@@ -1,0 +1,8 @@
+{
+    "uuid": "tuned-switcher@ciallo",
+    "name": "Tuned Profile Switcher",
+    "description": "Switch tuned profiles from the top panel",
+    "version": 1,
+    "shell-version": ["49"],
+    "url": ""
+}
