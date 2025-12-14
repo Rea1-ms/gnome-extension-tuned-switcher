@@ -1,9 +1,8 @@
 {
-    "uuid": "tuned-switcher@ciallo",
+    "uuid": "tuned-switcher@rea1-ms",
     "name": "Tuned Profile Switcher",
     "description": "Switch tuned profiles from the top panel",
-    "version": 1,
     "shell-version": ["49"],
     "settings-schema": "org.gnome.shell.extensions.tuned-switcher",
-    "url": ""
+    "url": "https://github.com/Rea1-ms/gnome-extension-tuned-switcher"
 }

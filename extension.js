@@ -208,7 +208,7 @@ class TunedIndicator extends PanelMenu.Button {
     _openSettings() {
         try {
             const extensionManager = Main.extensionManager;
-            const extension = extensionManager.lookup('tuned-switcher@ciallo');
+            const extension = extensionManager.lookup('tuned-switcher@rea1-ms');
             if (extension) {
                 extensionManager.openExtensionPrefs(extension.uuid, '', {});
             }
