@@ -2,29 +2,16 @@
 <schemalist gettext-domain="tuned-switcher">
   <schema id="org.gnome.shell.extensions.tuned-switcher" path="/org/gnome/shell/extensions/tuned-switcher/">
 
-    <!-- 显示的 profiles 列表，空数组表示显示全部 -->
     <key name="visible-profiles" type="as">
       <default>['latency-performance', 'balanced', 'powersave']</default>
       <summary>Visible profiles</summary>
       <description>List of profiles to show in the menu. Empty array shows all profiles.</description>
     </key>
 
-    <!-- 各 profile 对应的图标，使用 JSON 格式存储 -->
     <key name="profile-icons" type="s">
-      <default>'{
-        "latency-performance": "power-profile-performance-symbolic",
-        "balanced": "power-profile-balanced-symbolic",
-        "powersave": "power-profile-power-saver-symbolic"
-      }'</default>
+      <default>'{"latency-performance":"power-profile-performance-symbolic","balanced":"power-profile-balanced-symbolic","powersave":"power-profile-power-saver-symbolic"}'</default>
       <summary>Profile icons mapping</summary>
       <description>JSON mapping of profile names to icon names or emoji.</description>
-    </key>
-
-    <!-- 是否在面板显示 profile 名称 -->
-    <key name="show-profile-name" type="b">
-      <default>true</default>
-      <summary>Show profile name</summary>
-      <description>Whether to show the current profile name in the panel.</description>
     </key>
 
   </schema>
