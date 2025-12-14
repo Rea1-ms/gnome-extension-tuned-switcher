@@ -1,5 +1,4 @@
 /* -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*- */
-/* exported init */
 
 import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
@@ -8,8 +7,8 @@ import Gio from 'gi://Gio';
 import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
-import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
+import * as QuickSettings from 'resource:///org/gnome/shell/ui/quickSettings.js';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
@@ -17,51 +16,68 @@ const TUNED_BUS_NAME = 'com.redhat.tuned';
 const TUNED_OBJECT_PATH = '/Tuned';
 const TUNED_INTERFACE = 'com.redhat.tuned.control';
 
-const TunedIndicator = GObject.registerClass(
-class TunedIndicator extends PanelMenu.Button {
-    _init(settings) {
-        super._init(0.0, 'Tuned Profile Switcher');
-
-        this._settings = settings;
-
-        // 创建面板图标和标签容器
-        this._box = new St.BoxLayout({style_class: 'panel-status-menu-box'});
-
-        this._icon = new St.Icon({
-            icon_name: 'power-profile-balanced-symbolic',
-            style_class: 'system-status-icon',
+// Quick Settings Toggle (显示在控制栏)
+const TunedToggle = GObject.registerClass(
+class TunedToggle extends QuickSettings.QuickMenuToggle {
+    _init(extensionObject) {
+        super._init({
+            title: 'Tuned',
+            iconName: 'power-profile-balanced-symbolic',
+            toggleMode: false,
         });
-        this._box.add_child(this._icon);
 
-        this._label = new St.Label({
-            text: '',
-            y_align: Clutter.ActorAlign.CENTER,
-            style_class: 'tuned-profile-label',
-        });
-        this._box.add_child(this._label);
-
-        this.add_child(this._box);
-
-        // DBus 代理
+        this._extensionObject = extensionObject;
+        this._settings = extensionObject.getSettings();
         this._proxy = null;
         this._signalId = null;
         this._settingsChangedId = null;
+        this._activeProfile = '';
+
+        // 设置菜单头部
+        this.menu.setHeader('power-profile-balanced-symbolic', 'Tuned Profile');
 
         // 监听设置变化
         this._settingsChangedId = this._settings.connect('changed', () => {
-            this._updateLabelVisibility();
             this._refreshMenu();
         });
 
-        this._updateLabelVisibility();
-
         // 初始化 DBus 连接
         this._initProxy();
+
+        // 点击切换到下一个 profile
+        this.connect('clicked', () => {
+            this._cycleProfile();
+        });
     }
 
-    _updateLabelVisibility() {
-        const showName = this._settings.get_boolean('show-profile-name');
-        this._label.visible = showName;
+    _initProxy() {
+        const cancellable = new Gio.Cancellable();
+        Gio.DBusProxy.new_for_bus(
+            Gio.BusType.SYSTEM,
+            Gio.DBusProxyFlags.NONE,
+            null,
+            TUNED_BUS_NAME,
+            TUNED_OBJECT_PATH,
+            TUNED_INTERFACE,
+            cancellable,
+            this._onProxyReady.bind(this)
+        );
+    }
+
+    _onProxyReady(source, result) {
+        try {
+            this._proxy = Gio.DBusProxy.new_for_bus_finish(result);
+
+            this._signalId = this._proxy.connect('g-signal', (proxy, senderName, signalName, params) => {
+                if (signalName === 'profile_changed') {
+                    this._refreshMenu();
+                }
+            });
+
+            this._refreshMenu();
+        } catch (e) {
+            console.error(`[Tuned Switcher] Failed to create DBus proxy: ${e.message}`);
+        }
     }
 
     _getProfileIcon(profileName) {
@@ -75,74 +91,34 @@ class TunedIndicator extends PanelMenu.Button {
     }
 
     _isEmojiIcon(iconName) {
-        // 检测是否为 emoji（非 ASCII 且不是 symbolic 图标名）
         return iconName && !iconName.endsWith('-symbolic') && /[^\x00-\x7F]/.test(iconName);
     }
 
-    _updatePanelIcon(profileName) {
-        const iconName = this._getProfileIcon(profileName);
-
-        if (this._isEmojiIcon(iconName)) {
-            // 使用 emoji：隐藏图标，在 label 前显示 emoji
-            this._icon.visible = false;
-            const showName = this._settings.get_boolean('show-profile-name');
-            if (showName) {
-                this._label.set_text(`${iconName} ${profileName}`);
-            } else {
-                this._label.set_text(iconName);
-                this._label.visible = true;
-            }
-        } else {
-            // 使用系统图标
-            this._icon.visible = true;
-            this._icon.set_icon_name(iconName);
-            this._label.set_text(profileName);
-            this._updateLabelVisibility();
-        }
-    }
-
-    _initProxy() {
-        const cancellable = new Gio.Cancellable();
-        Gio.DBusProxy.new_for_bus(
-            Gio.BusType.SYSTEM,
-            Gio.DBusProxyFlags.NONE,
-            null,  // GDBusInterfaceInfo
-            TUNED_BUS_NAME,
-            TUNED_OBJECT_PATH,
-            TUNED_INTERFACE,
-            cancellable,
-            this._onProxyReady.bind(this)
-        );
-    }
-
-    _onProxyReady(source, result) {
-        try {
-            this._proxy = Gio.DBusProxy.new_for_bus_finish(result);
-
-            // 监听 profile_changed 信号
-            this._signalId = this._proxy.connect('g-signal', (proxy, senderName, signalName, params) => {
-                if (signalName === 'profile_changed') {
-                    this._refreshMenu();
-                }
-            });
-
-            this._refreshMenu();
-        } catch (e) {
-            console.error(`[Tuned Switcher] Failed to create DBus proxy: ${e.message}`);
-            this._label.set_text('Error');
-        }
-    }
-
     async _refreshMenu() {
+        // 清除旧菜单项
         this.menu.removeAll();
 
         try {
             // 获取当前 profile
             const activeResult = await this._dbusCall('active_profile');
-            const activeProfile = activeResult.get_child_value(0).get_string()[0];
+            this._activeProfile = activeResult.get_child_value(0).get_string()[0];
 
-            // 更新面板图标和标签
-            this._updatePanelIcon(activeProfile);
+            // 更新 toggle 显示
+            const iconName = this._getProfileIcon(this._activeProfile);
+            if (this._isEmojiIcon(iconName)) {
+                this.subtitle = `${iconName} ${this._activeProfile}`;
+                this.iconName = 'power-profile-balanced-symbolic';
+            } else {
+                this.subtitle = this._activeProfile;
+                this.iconName = iconName;
+            }
+
+            // 更新菜单头部
+            this.menu.setHeader(
+                this._isEmojiIcon(iconName) ? 'power-profile-balanced-symbolic' : iconName,
+                'Tuned Profile',
+                this._activeProfile
+            );
 
             // 获取所有 profiles
             const profilesResult = await this._dbusCall('profiles');
@@ -154,37 +130,37 @@ class TunedIndicator extends PanelMenu.Button {
 
             // 获取要显示的 profiles
             const visibleProfiles = this._settings.get_strv('visible-profiles');
-            const profilesToShow = visibleProfiles.length > 0
+            this._profilesToShow = visibleProfiles.length > 0
                 ? allProfiles.filter(p => visibleProfiles.includes(p))
                 : allProfiles;
 
-            // 添加菜单项
-            profilesToShow.forEach(profile => {
-                const iconName = this._getProfileIcon(profile);
+            // 添加 profile 菜单项
+            this._profilesToShow.forEach(profile => {
+                const profIconName = this._getProfileIcon(profile);
                 let label = profile;
 
-                // 如果有 emoji 图标，添加到菜单项
-                if (this._isEmojiIcon(iconName)) {
-                    label = `${iconName}  ${profile}`;
+                if (this._isEmojiIcon(profIconName)) {
+                    label = `${profIconName}  ${profile}`;
                 }
 
                 const item = new PopupMenu.PopupMenuItem(label);
 
-                // 为非 emoji 图标添加图标
-                if (!this._isEmojiIcon(iconName)) {
+                if (!this._isEmojiIcon(profIconName)) {
                     const icon = new St.Icon({
-                        icon_name: iconName,
+                        icon_name: profIconName,
                         style_class: 'popup-menu-icon',
                     });
                     item.insert_child_at_index(icon, 1);
                 }
 
-                if (profile === activeProfile) {
-                    item.setOrnament(PopupMenu.Ornament.DOT);
+                if (profile === this._activeProfile) {
+                    item.setOrnament(PopupMenu.Ornament.CHECK);
                 }
+
                 item.connect('activate', () => {
                     this._switchProfile(profile);
                 });
+
                 this.menu.addMenuItem(item);
             });
 
@@ -199,19 +175,25 @@ class TunedIndicator extends PanelMenu.Button {
 
         } catch (e) {
             console.error(`[Tuned Switcher] Failed to refresh menu: ${e.message}`);
-            const errorItem = new PopupMenu.PopupMenuItem('Error loading profiles');
-            errorItem.setSensitive(false);
-            this.menu.addMenuItem(errorItem);
         }
+    }
+
+    async _cycleProfile() {
+        if (!this._profilesToShow || this._profilesToShow.length === 0) {
+            return;
+        }
+
+        const currentIndex = this._profilesToShow.indexOf(this._activeProfile);
+        const nextIndex = (currentIndex + 1) % this._profilesToShow.length;
+        const nextProfile = this._profilesToShow[nextIndex];
+
+        await this._switchProfile(nextProfile);
     }
 
     _openSettings() {
         try {
             const extensionManager = Main.extensionManager;
-            const extension = extensionManager.lookup('tuned-switcher@rea1-ms');
-            if (extension) {
-                extensionManager.openExtensionPrefs(extension.uuid, '', {});
-            }
+            extensionManager.openExtensionPrefs(this._extensionObject.uuid, '', {});
         } catch (e) {
             console.error(`[Tuned Switcher] Failed to open settings: ${e.message}`);
         }
@@ -261,11 +243,30 @@ class TunedIndicator extends PanelMenu.Button {
     }
 });
 
+// Quick Settings 指示器
+const TunedIndicator = GObject.registerClass(
+class TunedIndicator extends QuickSettings.SystemIndicator {
+    _init(extensionObject) {
+        super._init();
+
+        this._indicator = this._addIndicator();
+        this._indicator.iconName = 'power-profile-balanced-symbolic';
+        this._indicator.visible = false;  // 默认隐藏指示器图标
+
+        this._toggle = new TunedToggle(extensionObject);
+        this.quickSettingsItems.push(this._toggle);
+    }
+
+    destroy() {
+        this._toggle.destroy();
+        super.destroy();
+    }
+});
+
 export default class TunedSwitcherExtension extends Extension {
     enable() {
-        this._settings = this.getSettings();
-        this._indicator = new TunedIndicator(this._settings);
-        Main.panel.addToStatusArea(this.uuid, this._indicator);
+        this._indicator = new TunedIndicator(this);
+        Main.panel.statusArea.quickSettings.addExternalIndicator(this._indicator);
     }
 
     disable() {
@@ -273,6 +274,5 @@ export default class TunedSwitcherExtension extends Extension {
             this._indicator.destroy();
             this._indicator = null;
         }
-        this._settings = null;
     }
 }
