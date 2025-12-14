@@ -22,8 +22,7 @@ const ICON_PRESETS = [
     {id: 'power-profile-power-saver-symbolic', name: 'Power Saver'},
     {id: 'thunderbolt-symbolic', name: 'Thunderbolt'},
     {id: 'battery-full-symbolic', name: 'Battery'},
-    {id: 'speedometer-symbolic', name: 'Speedometer'},
-    {id: 'emoji-custom', name: 'Custom (Emoji/Text)'},
+    {id: 'emoji-custom', name: 'Custom Emoji'},
 ];
 
 export default class TunedSwitcherPreferences extends ExtensionPreferences {
@@ -104,7 +103,7 @@ export default class TunedSwitcherPreferences extends ExtensionPreferences {
         });
 
         const customRow = new Adw.EntryRow({
-            title: _('Custom Icon'),
+            title: _('Custom Emoji'),
         });
         customRow.visible = false;
 
