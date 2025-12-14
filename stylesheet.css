@@ -1,6 +1,8 @@
-/* Tuned Profile Switcher Stylesheet */
+/**
+ * Tuned Profile Switcher - Preferences
+ *
+ * SPDX-License-Identifier: GPL-3.0
+ * SPDX-FileCopyrightText: 2025 Rea1-ms
+ */
 
-.tuned-profile-label {
-    margin-left: 4px;
-    font-size: 0.9em;
-}
+/* Currently no custom styles needed */

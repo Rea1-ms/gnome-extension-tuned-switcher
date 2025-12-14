@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist gettext-domain="tuned-switcher">
+  <schema id="org.gnome.shell.extensions.tuned-switcher" path="/org/gnome/shell/extensions/tuned-switcher/">
+
+    <key name="visible-profiles" type="as">
+      <default>['latency-performance', 'balanced', 'powersave']</default>
+      <summary>Visible profiles</summary>
+      <description>List of profiles to show in the menu. Empty array shows all profiles.</description>
+    </key>
+
+    <key name="profile-icons" type="s">
+      <default>'{"latency-performance":"power-profile-performance-symbolic","balanced":"power-profile-balanced-symbolic","powersave":"power-profile-power-saver-symbolic"}'</default>
+      <summary>Profile icons mapping</summary>
+      <description>JSON mapping of profile names to icon names or emoji.</description>
+    </key>
+
+  </schema>
+</schemalist>
